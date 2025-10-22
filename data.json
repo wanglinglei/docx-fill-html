@@ -1,0 +1,48 @@
+[
+  {
+    "child": {
+      "name": "小明",
+      "class": "大班（2）班",
+      "gender": "男"
+    },
+    "interview": {
+      "time": "2025-10-21",
+      "object": "小明妈妈（138xxxx1234）",
+      "teacher": "李老师"
+    },
+    "details": {
+      "school_situation": "小明近期在园表现良好...",
+      "cause_analysis": "偶尔挑食...",
+      "teacher_measures": "引导尝试新蔬菜...",
+      "parent_suggestions": "建议在家营造多样饮食氛围...",
+      "parent_expectations": "希望多关注社交能力..."
+    },
+    "signatures": {
+      "parent": "小明妈妈",
+      "principal": "王园长"
+    }
+  },
+  {
+    "child": {
+      "name": "小红",
+      "class": "中班（1）班",
+      "gender": "女"
+    },
+    "interview": {
+      "time": "2025-10-22",
+      "object": "小红爸爸（139xxxx5678）",
+      "teacher": "张老师"
+    },
+    "details": {
+      "school_situation": "小红活泼开朗，主动帮助同学...",
+      "cause_analysis": "午睡时偶尔难以入睡...",
+      "teacher_measures": "睡前播放轻音乐帮助放松...",
+      "parent_suggestions": "建议在家固定作息时间...",
+      "parent_expectations": "希望加强语言表达能力训练..."
+    },
+    "signatures": {
+      "parent": "小红爸爸",
+      "principal": "王园长"
+    }
+  }
+]

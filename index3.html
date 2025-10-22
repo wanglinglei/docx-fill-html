@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOCX模板生成器</title>
+  <!-- 引入外部资源 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <!-- Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36CFC9',
+            neutral: '#F5F7FA',
+            dark: '#1D2129',
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .shadow-soft {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+      .transition-custom {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+    }
+  </style>
+</head>
+
+<body class="font-inter bg-gray-50 text-dark min-h-screen flex flex-col">
+  <!-- 顶部导航 -->
+  <header class="bg-white shadow-sm sticky top-0 z-10">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-file-text-o text-primary text-2xl"></i>
+        <h1 class="text-xl md:text-2xl font-bold text-primary">DOCX模板生成器</h1>
+      </div>
+      <div class="text-sm text-gray-500">
+        轻松生成定制化文档
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="flex-grow container mx-auto px-4 py-8">
+    <div class="max-w-5xl mx-auto">
+      <!-- 介绍卡片 -->
+      <div class="bg-white rounded-xl shadow-soft p-6 mb-8">
+        <h2 class="text-lg font-semibold mb-2">使用说明</h2>
+        <p class="text-gray-600 mb-4">上传您的DOCX模板文件和JSON数据，系统将根据模板和数据生成新的文档。支持两种生成模式：</p>
+        <ul class="list-disc pl-5 text-gray-600 space-y-1">
+          <li><span class="font-medium">单个文档</span>：所有数据合并到一个文档中，每条数据生成一页</li>
+          <li><span class="font-medium">多个文档</span>：为每条数据生成一个独立的文档</li>
+        </ul>
+      </div>
+
+      <!-- 上传区域 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- 模板上传 -->
+        <div class="bg-white rounded-xl shadow-soft p-6 transition-custom hover:shadow-lg">
+          <div class="flex items-center mb-4">
+            <i class="fa fa-file-word-o text-primary mr-2"></i>
+            <h3 class="font-semibold">上传模板文件</h3>
+          </div>
+          <div id="templateUpload"
+            class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer transition-custom hover:border-primary">
+            <i class="fa fa-cloud-upload text-4xl text-gray-400 mb-3"></i>
+            <p class="text-gray-500 mb-2">拖放DOCX文件到此处，或点击上传</p>
+            <p class="text-xs text-gray-400">支持 .docx 格式，最大 10MB</p>
+            <input type="file" id="templateFile" accept=".docx" class="hidden" />
+            <div id="templateInfo" class="mt-4 hidden">
+              <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                <span id="templateFileName" class="text-sm truncate"></span>
+                <button id="removeTemplate" class="text-red-500 hover:text-red-700 transition-custom">
+                  <i class="fa fa-times"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- JSON数据输入 -->
+        <div class="bg-white rounded-xl shadow-soft p-6 transition-custom hover:shadow-lg">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+              <i class="fa fa-code text-primary mr-2"></i>
+              <h3 class="font-semibold">输入JSON数据</h3>
+            </div>
+            <label class="text-sm text-primary cursor-pointer">
+              <i class="fa fa-upload mr-1"></i> 上传JSON
+              <input type="file" id="jsonFile" accept=".json" class="hidden" />
+            </label>
+          </div>
+          <textarea id="jsonData" rows="8"
+            class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-custom"
+            placeholder='示例: [{"name":"张三","age":25},{"name":"李四","age":30}]'></textarea>
+          <div class="mt-2 text-xs text-gray-500 flex justify-between">
+            <span>请输入数组格式的JSON数据</span>
+            <span id="jsonStatus" class="text-gray-400">未验证</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="flex flex-col sm:flex-row justify-center gap-4 mb-8">
+        <button id="generateSingle"
+          class="flex-1 sm:flex-none sm:w-48 bg-primary hover:bg-primary/90 text-white font-medium py-3 px-6 rounded-lg transition-custom flex items-center justify-center">
+          <i class="fa fa-file-text-o mr-2"></i> 生成单个文档
+        </button>
+        <button id="generateMultiple"
+          class="flex-1 sm:flex-none sm:w-48 bg-secondary hover:bg-secondary/90 text-white font-medium py-3 px-6 rounded-lg transition-custom flex items-center justify-center">
+          <i class="fa fa-files-o mr-2"></i> 生成多个文档
+        </button>
+      </div>
+
+      <!-- 状态和结果区域 -->
+      <div id="statusArea" class="bg-white rounded-xl shadow-soft p-6 hidden">
+        <div id="loadingState" class="flex items-center justify-center py-8 hidden">
+          <div class="flex flex-col items-center">
+            <div class="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-600" id="loadingText">正在生成文档...</p>
+          </div>
+        </div>
+
+        <div id="successState" class="py-4 hidden">
+          <div class="flex items-center text-green-600 mb-4">
+            <i class="fa fa-check-circle text-xl mr-2"></i>
+            <h3 class="font-semibold">生成成功</h3>
+          </div>
+          <div id="downloadArea" class="grid grid-cols-1 gap-3">
+            <!-- 下载链接将在这里动态生成 -->
+          </div>
+        </div>
+
+        <div id="errorState" class="py-4 hidden">
+          <div class="flex items-center text-red-600 mb-4">
+            <i class="fa fa-exclamation-circle text-xl mr-2"></i>
+            <h3 class="font-semibold">生成失败</h3>
+          </div>
+          <p id="errorMessage" class="text-gray-600"></p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="bg-white border-t border-gray-200 py-6">
+    <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+      <p>DOCX模板生成器 &copy; 2023 | 使用 docx-templates 构建</p>
+    </div>
+  </footer>
+
+  <script type="module">
+    // 引入docx-templates
+    import { createReport } from 'https://unpkg.com/docx-templates/lib/browser.js';
+
+    // 全局变量
+    let templateContent = null;
+    let jsonData = null;
+
+    // DOM 元素
+    const templateUpload = document.getElementById('templateUpload');
+    const templateFile = document.getElementById('templateFile');
+    const templateInfo = document.getElementById('templateInfo');
+    const templateFileName = document.getElementById('templateFileName');
+    const removeTemplate = document.getElementById('removeTemplate');
+    const jsonDataInput = document.getElementById('jsonData');
+    const jsonFile = document.getElementById('jsonFile');
+    const jsonStatus = document.getElementById('jsonStatus');
+    const generateSingle = document.getElementById('generateSingle');
+    const generateMultiple = document.getElementById('generateMultiple');
+    const statusArea = document.getElementById('statusArea');
+    const loadingState = document.getElementById('loadingState');
+    const successState = document.getElementById('successState');
+    const errorState = document.getElementById('errorState');
+    const loadingText = document.getElementById('loadingText');
+    const errorMessage = document.getElementById('errorMessage');
+    const downloadArea = document.getElementById('downloadArea');
+
+    // 模板上传处理
+    templateUpload.addEventListener('click', () => {
+      templateFile.click();
+    });
+
+    templateFile.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        const file = e.target.files[0];
+        if (file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' &&
+          !file.name.endsWith('.docx')) {
+          showError('请上传有效的DOCX文件');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          templateContent = event.target.result;
+          templateFileName.textContent = file.name;
+          templateInfo.classList.remove('hidden');
+          validateInputs();
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+
+    // 移除模板
+    removeTemplate.addEventListener('click', () => {
+      templateFile.value = '';
+      templateContent = null;
+      templateInfo.classList.add('hidden');
+      validateInputs();
+    });
+
+    // 拖放功能
+    templateUpload.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      templateUpload.classList.add('border-primary', 'bg-primary/5');
+    });
+
+    templateUpload.addEventListener('dragleave', () => {
+      templateUpload.classList.remove('border-primary', 'bg-primary/5');
+    });
+
+    templateUpload.addEventListener('drop', (e) => {
+      e.preventDefault();
+      templateUpload.classList.remove('border-primary', 'bg-primary/5');
+
+      if (e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' &&
+          !file.name.endsWith('.docx')) {
+          showError('请上传有效的DOCX文件');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          templateContent = event.target.result;
+          templateFileName.textContent = file.name;
+          templateInfo.classList.remove('hidden');
+          validateInputs();
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
+
+    // JSON数据处理
+    jsonDataInput.addEventListener('input', validateJson);
+    jsonFile.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        const file = e.target.files[0];
+        if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+          showError('请上传有效的JSON文件');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          jsonDataInput.value = event.target.result;
+          validateJson();
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    // 验证JSON
+    function validateJson() {
+      try {
+        const data = JSON.parse(jsonDataInput.value);
+        if (Array.isArray(data)) {
+          jsonData = data;
+          jsonStatus.textContent = `有效 - ${data.length} 条数据`;
+          jsonStatus.className = 'text-green-600';
+          validateInputs();
+          return true;
+        } else {
+          jsonStatus.textContent = 'JSON必须是数组格式';
+          jsonStatus.className = 'text-red-500';
+          jsonData = null;
+        }
+      } catch (error) {
+        jsonStatus.textContent = '无效的JSON格式';
+        jsonStatus.className = 'text-red-500';
+        jsonData = null;
+      }
+      validateInputs();
+      return false;
+    }
+
+    // 验证输入 - 修改为返回布尔值
+    function validateInputs() {
+      const isReady = !!templateContent && !!jsonData && jsonData.length > 0;
+      generateSingle.disabled = !isReady;
+      generateMultiple.disabled = !isReady;
+
+      if (isReady) {
+        generateSingle.classList.remove('opacity-50', 'cursor-not-allowed');
+        generateMultiple.classList.remove('opacity-50', 'cursor-not-allowed');
+      } else {
+        generateSingle.classList.add('opacity-50', 'cursor-not-allowed');
+        generateMultiple.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+
+      // 返回验证结果
+      return isReady;
+    }
+
+    // 显示加载状态
+    function showLoading(text = '正在生成文档...') {
+      statusArea.classList.remove('hidden');
+      loadingState.classList.remove('hidden');
+      successState.classList.add('hidden');
+      errorState.classList.add('hidden');
+      loadingText.textContent = text;
+    }
+
+    // 显示成功状态
+    function showSuccess() {
+      loadingState.classList.add('hidden');
+      successState.classList.remove('hidden');
+      errorState.classList.add('hidden');
+    }
+
+    // 显示错误状态
+    function showError(message) {
+      statusArea.classList.remove('hidden');
+      loadingState.classList.add('hidden');
+      successState.classList.add('hidden');
+      errorState.classList.remove('hidden');
+      errorMessage.textContent = message;
+    }
+
+    // 合并两个 Word 文档的函数
+    async function mergeDocuments(doc1, doc2) {
+      try {
+        const zip = new JSZip();
+
+        // 加载两个文档
+        const zip1 = await JSZip.loadAsync(doc1);
+        const zip2 = await JSZip.loadAsync(doc2);
+
+        // 获取第一个文档的 document.xml
+        const doc1Xml = await zip1.file("word/document.xml")?.async("text");
+        const doc2Xml = await zip2.file("word/document.xml")?.async("text");
+
+        if (!doc1Xml || !doc2Xml) {
+          throw new Error("无法读取文档内容");
+        }
+
+        // 提取第二个文档的 body 内容（去掉根标签）
+        const doc2BodyMatch = doc2Xml.match(/<w:body[^>]*>(.*?)<\/w:body>/s);
+        if (!doc2BodyMatch) {
+          throw new Error("无法解析第二个文档的 body 内容");
+        }
+
+        const doc2Body = doc2BodyMatch[1];
+
+        // 将第二个文档的内容插入到第一个文档的 body 中
+        const mergedXml = doc1Xml.replace(
+          /(<w:body[^>]*>)(.*?)(<\/w:body>)/s,
+          `$1$2${doc2Body}$3`
+        );
+
+        // 更新第一个文档的 document.xml
+        zip1.file("word/document.xml", mergedXml);
+
+        // 复制第二个文档中的其他资源（图片、样式等）
+        for (const [filePath, file] of Object.entries(zip2.files)) {
+          if (filePath.startsWith("word/") && !filePath.includes("document.xml")) {
+            const content = await file.async("uint8array");
+            zip1.file(filePath, content);
+          }
+        }
+
+        // 生成合并后的文档
+        return await zip1.generateAsync({ type: "blob" });
+      } catch (error) {
+        console.error("合并文档时出错：", error);
+        throw error;
+      }
+    }
+
+    // 生成单个文档
+    generateSingle.addEventListener('click', async () => {
+      // 检查验证状态并给出明确反馈
+      if (!validateInputs()) {
+        console.log('验证失败，无法生成文档');
+        showError('请先上传有效的DOCX模板和JSON数据数组');
+        return;
+      }
+
+      try {
+        showLoading('正在生成单个文档...');
+        console.log('开始生成单个文档');
+
+        // // 准备合并数据，添加分页符
+        // const mergedData = jsonData.map((item, index) => {
+        //   // 在每个项目后添加分页符，最后一个除外
+        //   if (index < jsonData.length - 1) {
+        //     return { ...item, __pageBreak: true };
+        //   }
+        //   return item;
+        // });
+
+        // // 使用docx-templates生成文档
+        // const generatedDoc = await createReport({
+        //   template: templateContent,
+        //   data: mergedData,
+        //   additionalJsContext: {
+        //     // 自定义分页符处理函数
+        //     pageBreak: () => {
+        //       return {
+        //         type: 'paragraph',
+        //         children: [{
+        //           type: 'text',
+        //           text: '',
+        //           paragraphProperties: {
+        //             pageBreakBefore: true
+        //           }
+        //         }]
+        //       };
+        //     }
+        //   },
+        //   cmdDelimiter: ['{', '}'],
+        //   processLineBreaks: true
+        // });
+
+
+        // 为每条数据生成单独的页面
+        const pageBuffers = [];
+
+        for (let i = 0; i < jsonData.length; i++) {
+          const data = jsonData[i];
+          console.log(`正在处理第 ${i + 1} 页数据`);
+          console.log("数据内容:", JSON.stringify(data, null, 2));
+
+          // 使用 docx-templates 生成单页文档
+          const report = await createReport({
+            template: templateContent,
+            data: data,
+            additionalJsContext: {
+              // 可以添加额外的 JavaScript 上下文
+            },
+            cmdDelimiter: ["{", "}"], // 明确指定模板分隔符
+          });
+
+          console.log(`第 ${i + 1} 页文档生成完成，大小: ${report.length} 字节`);
+          pageBuffers.push(report);
+        }
+
+        // 合并所有页面
+        if (pageBuffers.length > 0) {
+          // 使用第一个页面作为基础
+          let finalBuffer = pageBuffers[0];
+
+          // 合并其他页面
+          for (let i = 1; i < pageBuffers.length; i++) {
+            finalBuffer = await mergeDocuments(finalBuffer, pageBuffers[i]);
+          }
+          // 创建下载链接
+          downloadArea.innerHTML = '';
+          const blob = new Blob([finalBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+          const url = URL.createObjectURL(blob);
+
+          const downloadLink = document.createElement('a');
+          downloadLink.href = url;
+          downloadLink.download = '生成的文档.docx';
+          downloadLink.className = 'flex items-center justify-center bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-custom';
+          downloadLink.innerHTML = '<i class="fa fa-download mr-2"></i> 下载合并文档';
+
+          downloadArea.appendChild(downloadLink);
+          showSuccess();
+          console.log('单个文档生成成功');
+        } else {
+          throw new Error("没有数据需要处理");
+        }
+      } catch (error) {
+        console.error('生成单个文档失败:', error);
+        showError(`生成失败: ${error.message || '未知错误'}`);
+      }
+    });
+
+    // 生成多个文档
+    generateMultiple.addEventListener('click', async () => {
+      // 检查验证状态并给出明确反馈
+      if (!validateInputs()) {
+        console.log('验证失败，无法生成文档');
+        showError('请先上传有效的DOCX模板和JSON数据数组');
+        return;
+      }
+
+      try {
+        showLoading(`正在生成 ${jsonData.length} 个文档...`);
+        console.log(`开始生成 ${jsonData.length} 个文档`);
+
+        // 如果只有一个文档，直接下载
+        if (jsonData.length === 1) {
+          const generatedDoc = await createReport({
+            template: templateContent,
+            data: jsonData[0],
+            processLineBreaks: true,
+            cmdDelimiter: ['{', '}'],
+          });
+
+          const blob = new Blob([generatedDoc], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+          saveAs(blob, `文档_1.docx`);
+
+          showSuccess();
+          downloadArea.innerHTML = '<p class="text-gray-600 text-center">文档已自动下载</p>';
+          console.log('单个文档生成成功');
+          return;
+        }
+
+        // 多个文档，打包成ZIP
+        const zip = new JSZip();
+
+        // 逐个生成文档并添加到ZIP
+        for (let i = 0; i < jsonData.length; i++) {
+          // 更新加载状态
+          loadingText.textContent = `正在生成文档 ${i + 1}/${jsonData.length}...`;
+
+          const generatedDoc = await createReport({
+            template: templateContent,
+            data: jsonData[i],
+            processLineBreaks: true,
+            cmdDelimiter: ['{', '}'],
+          });
+
+          // 使用数据中的id或索引作为文件名
+          const itemId = jsonData[i].id || (i + 1);
+          zip.file(`文档_${itemId}.docx`, generatedDoc);
+        }
+
+        // 生成ZIP文件并下载
+        zip.generateAsync({ type: 'blob' }, (metadata) => {
+          loadingText.textContent = `正在打包文件... ${Math.round(metadata.percent)}%`;
+        }).then((content) => {
+          // 创建下载链接
+          downloadArea.innerHTML = '';
+          const url = URL.createObjectURL(content);
+
+          const downloadLink = document.createElement('a');
+          downloadLink.href = url;
+          downloadLink.download = '生成的文档集合.zip';
+          downloadLink.className = 'flex items-center justify-center bg-secondary hover:bg-secondary/90 text-white font-medium py-2 px-4 rounded-lg transition-custom';
+          downloadLink.innerHTML = '<i class="fa fa-download mr-2"></i> 下载所有文档 (ZIP)';
+
+          downloadArea.appendChild(downloadLink);
+          showSuccess();
+          console.log('多个文档生成成功');
+        });
+
+      } catch (error) {
+        console.error('生成多个文档失败:', error);
+        showError(`生成失败: ${error.message || '未知错误'}`);
+      }
+    });
+
+    // 初始化
+    validateInputs();
+
+    // 添加按钮点击调试日志
+    generateSingle.addEventListener('click', () => {
+      console.log('生成单个文档按钮被点击');
+    });
+
+    generateMultiple.addEventListener('click', () => {
+      console.log('生成多个文档按钮被点击');
+    });
+  </script>
+</body>
+
+</html>

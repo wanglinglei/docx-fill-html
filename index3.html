@@ -119,6 +119,25 @@
         </div>
       </div>
 
+      <!-- 输出文件名设置 -->
+      <div class="bg-white rounded-xl shadow-soft p-6 mb-8">
+        <div class="flex items-center mb-4">
+          <i class="fa fa-file-text text-primary mr-2"></i>
+          <h3 class="font-semibold">输出文件名设置</h3>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4">
+          <div class="flex-1">
+            <label for="outputFileName" class="block text-sm font-medium text-gray-700 mb-2">
+              输出文件名（不包含扩展名）
+            </label>
+            <input type="text" id="outputFileName"
+              class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-custom"
+              placeholder="例如：生成文档、合同文件、批量输出" value="生成的文档">
+            <p class="mt-2 text-xs text-gray-500">单个文档：文件名.docx | 多个文档：文件名.zip</p>
+          </div>
+        </div>
+      </div>
+
       <!-- 操作按钮 -->
       <div class="flex flex-col sm:flex-row justify-center gap-4 mb-8">
         <button id="generateSingle"
@@ -164,7 +183,7 @@
   <!-- 页脚 -->
   <footer class="bg-white border-t border-gray-200 py-6">
     <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
-      <p>DOCX模板生成器 &copy; 2023 | 使用 docx-templates 构建</p>
+      <p>DOCX模板生成器 &copy; 2025 | 使用 docx-templates 构建</p>
     </div>
   </footer>
 
@@ -185,6 +204,7 @@
     const jsonDataInput = document.getElementById('jsonData');
     const jsonFile = document.getElementById('jsonFile');
     const jsonStatus = document.getElementById('jsonStatus');
+    const outputFileName = document.getElementById('outputFileName');
     const generateSingle = document.getElementById('generateSingle');
     const generateMultiple = document.getElementById('generateMultiple');
     const statusArea = document.getElementById('statusArea');
@@ -409,40 +429,6 @@
       try {
         showLoading('正在生成单个文档...');
         console.log('开始生成单个文档');
-
-        // // 准备合并数据，添加分页符
-        // const mergedData = jsonData.map((item, index) => {
-        //   // 在每个项目后添加分页符，最后一个除外
-        //   if (index < jsonData.length - 1) {
-        //     return { ...item, __pageBreak: true };
-        //   }
-        //   return item;
-        // });
-
-        // // 使用docx-templates生成文档
-        // const generatedDoc = await createReport({
-        //   template: templateContent,
-        //   data: mergedData,
-        //   additionalJsContext: {
-        //     // 自定义分页符处理函数
-        //     pageBreak: () => {
-        //       return {
-        //         type: 'paragraph',
-        //         children: [{
-        //           type: 'text',
-        //           text: '',
-        //           paragraphProperties: {
-        //             pageBreakBefore: true
-        //           }
-        //         }]
-        //       };
-        //     }
-        //   },
-        //   cmdDelimiter: ['{', '}'],
-        //   processLineBreaks: true
-        // });
-
-
         // 为每条数据生成单独的页面
         const pageBuffers = [];
 
@@ -481,7 +467,8 @@
 
           const downloadLink = document.createElement('a');
           downloadLink.href = url;
-          downloadLink.download = '生成的文档.docx';
+          const fileName = outputFileName.value.trim() || '生成的文档';
+          downloadLink.download = `${fileName}.docx`;
           downloadLink.className = 'flex items-center justify-center bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-custom';
           downloadLink.innerHTML = '<i class="fa fa-download mr-2"></i> 下载合并文档';
 
@@ -519,9 +506,15 @@
             cmdDelimiter: ['{', '}'],
           });
 
-          const blob = new Blob([generatedDoc], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-          saveAs(blob, `文档_1.docx`);
+          // 判断数据数据中是否包含name 包含的话拼接
+          let fileName = outputFileName.value.trim() || '生成的文档';
+          const dataName = jsonData[0].name;
+          if (dataName) {
+            fileName = `${fileName}-${dataName}`;
+          }
 
+          const blob = new Blob([generatedDoc], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+          saveAs(blob, `${fileName}.docx`);
           showSuccess();
           downloadArea.innerHTML = '<p class="text-gray-600 text-center">文档已自动下载</p>';
           console.log('单个文档生成成功');
@@ -544,8 +537,9 @@
           });
 
           // 使用数据中的id或索引作为文件名
-          const itemId = jsonData[i].id || (i + 1);
-          zip.file(`文档_${itemId}.docx`, generatedDoc);
+          const baseFileName = outputFileName.value.trim() || '生成的文档';
+          const itemId = jsonData[i].name || (i + 1);
+          zip.file(`${baseFileName}-${itemId}.docx`, generatedDoc);
         }
 
         // 生成ZIP文件并下载
@@ -558,7 +552,8 @@
 
           const downloadLink = document.createElement('a');
           downloadLink.href = url;
-          downloadLink.download = '生成的文档集合.zip';
+          const fileName = outputFileName.value.trim() || '生成的文档';
+          downloadLink.download = `${fileName}_集合.zip`;
           downloadLink.className = 'flex items-center justify-center bg-secondary hover:bg-secondary/90 text-white font-medium py-2 px-4 rounded-lg transition-custom';
           downloadLink.innerHTML = '<i class="fa fa-download mr-2"></i> 下载所有文档 (ZIP)';
 
